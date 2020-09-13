@@ -1,8 +1,9 @@
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const connection = require("./database/Connection");
 const config = require("./config");
-const contacts = require("./contacts");
+// const contacts = require("./contacts");
 const contactsRouter = require("./routers/contactsRouter");
 const argv = require("yargs").argv;
 
@@ -33,16 +34,35 @@ function invokeAction({ action, id, name, email, phone }) {
 
 invokeAction(argv);
 
-app.use(morgan("tiny"));
-app.use(express.json());
-app.use(cors());
+async function main() {
+  try {
+    await connection.connect();
 
-app.use("/api/contacts", contactsRouter);
+    app.use(morgan("tiny"));
+    app.use(express.json());
+    app.use(cors());
 
-app.listen(config.port, (err) => {
-  if (err) {
-    return console.error(err);
+    app.use("/api/contacts", contactsRouter);
+
+    app.use((err, req, res, next) => {
+      if (err) {
+        return res.status(500).send(responseNormalizer(err));
+      }
+      next();
+    });
+
+    app.listen(config.port, () => {
+      console.log("server started at port", config.port);
+    });
+
+    process.on("SIGILL", () => {
+      connection.close();
+    });
+
+    console.log("Database connection successful");
+  } catch (e) {
+    console.error(e);
   }
+}
 
-  console.info("server started at port", config.port);
-});
+main();
