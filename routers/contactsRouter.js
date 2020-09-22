@@ -1,18 +1,21 @@
 const express = require("express");
 const joi = require("joi");
-const mongodb = require("mongodb");
-const connection = require("../database/Connection");
 const responseNormalizer = require("../normalizers/responseNormalizer");
-// const contacts = require("../contacts");
+const authCheck = require("../middlewares/auth-check");
 const errorWrapper = require("../helpers/errorWrapper");
-
+const ContactModel = require("../database/models/ContactModel");
 const router = express.Router();
 
 router.get(
   "/",
   errorWrapper(async (req, res) => {
-    const collection = await connection.database.collection("contacts");
-    const contacts = await collection.find({}).toArray();
+    const { page = 0, limit = 20 } = req.query;
+
+    const contacts = await ContactModel.find({})
+      .sort({ name: 1 })
+      .skip(parseInt(page * limit))
+      .limit(parseInt(limit));
+
     res.status(200).send(responseNormalizer({ contacts }));
   })
 );
@@ -20,10 +23,7 @@ router.get(
 router.get(
   "/:contactId",
   errorWrapper(async (req, res) => {
-    const collection = await connection.database.collection("contacts");
-    const contactById = await collection.findOne({
-      _id: mongodb.ObjectId(req.params.contactId),
-    });
+    const contactById = await ContactModel.findById(req.params.contactId);
 
     if (contactById) {
       return res.status(200).send(responseNormalizer(contactById));
@@ -36,14 +36,13 @@ router.get(
 
 router.post(
   "/",
+  authCheck,
   errorWrapper(async (req, res) => {
     const error = await joi
       .object({
-        name: joi.string().min(3).required(),
         email: joi.string().min(5).required(),
-        phone: joi.number().min(6).required(),
         subscription: joi.string(),
-        password: joi.string(),
+        password: joi.string().required(),
       })
       .validateAsync(req.body);
 
@@ -51,25 +50,20 @@ router.post(
       error.error = { message: `${error.error.message} field` };
       return res.status(400).send(responseNormalizer(error.error));
     }
-    const collection = await connection.database.collection("contacts");
-    const contactToAdd = await collection.insertOne(req.body);
+    const newContact = await ContactModel.create(req.body);
 
-    res.status(201).send(responseNormalizer(contactToAdd));
+    res.status(201).send(responseNormalizer(newContact));
   })
 );
 
 router.delete(
   "/:contactId",
+  authCheck,
   errorWrapper(async (req, res) => {
-    const { contactId } = req.params;
+    const contactToRemove = await ContactModel.findById(req.params.contactId);
 
-    const collection = connection.getCollection("contacts");
-
-    const contactToRemove = await collection.findOne({
-      _id: mongodb.ObjectId(contactId),
-    });
     if (contactToRemove) {
-      await collection.removeOne(contactToRemove);
+      await contactToRemove.remove();
       const success = { message: "contact deleted" };
       return res.status(200).send(success);
     } else {
@@ -81,6 +75,7 @@ router.delete(
 
 router.patch(
   "/:contactId",
+  authCheck,
   errorWrapper(async (req, res) => {
     if (!Object.keys(req.body).length) {
       const err = { message: "missing fields" };
@@ -88,19 +83,16 @@ router.patch(
     }
 
     const { contactId } = req.params;
-    const collection = connection.getCollection("contacts");
-    const contactToUpdate = await collection.findOne({
-      _id: mongodb.ObjectId(contactId),
-    });
+    const contact = await ContactModel.findById(contactId);
 
-    if (contactToUpdate) {
-      const updatedContact = await collection.updateOne(
-        { _id: mongodb.ObjectId(contactId) },
-        {
-          $set: req.body,
-        }
-      );
-      return res.status(200).send(responseNormalizer(updatedContact));
+    if (contact) {
+      Object.keys(req.body).forEach((key) => {
+        contact[key] = req.body[key];
+      });
+
+      await contact.save();
+
+      res.status(200).send({ contact });
     } else {
       const err = { message: "Not found" };
       return res.status(404).send(responseNormalizer(err));
