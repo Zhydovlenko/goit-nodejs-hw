@@ -1,5 +1,5 @@
-const mongodb = require("mongodb");
 const config = require("../config");
+const mongoose = require("mongoose");
 
 class Connection {
   constructor() {
@@ -12,16 +12,28 @@ class Connection {
   }
 
   async connect() {
-    const { MongoClient } = mongodb;
-
-    this.connection = await MongoClient.connect(config.databaseConnectionUrl, {
-      useUnifiedTopology: true,
+    const connectionStatePromise = new Promise((resolve, reject) => {
+      mongoose.connection.on("error", (e) => {
+        process.exit(1);
+      });
+      mongoose.connection.on("open", () => {
+        resolve();
+      });
     });
-    this.database = this.connection.db(config.databaseName);
-  }
 
+    await mongoose.connect(
+      `${config.databaseConnectionUrl}/${config.databaseName}`,
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        useFindAndModify: false,
+      }
+    );
+
+    return connectionStatePromise;
+  }
   async close() {
-    this.connection.close();
+    mongoose.connection.close();
   }
 }
 

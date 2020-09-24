@@ -3,8 +3,9 @@ const morgan = require("morgan");
 const cors = require("cors");
 const connection = require("./database/Connection");
 const config = require("./config");
-// const contacts = require("./contacts");
+const responseNormalizer = require("./normalizers/responseNormalizer");
 const contactsRouter = require("./routers/contactsRouter");
+const usersRouter = require("./routers/usersRouter");
 const argv = require("yargs").argv;
 
 const app = express();
@@ -43,6 +44,7 @@ async function main() {
     app.use(cors());
 
     app.use("/api/contacts", contactsRouter);
+    app.use("/users", usersRouter);
 
     app.use((err, req, res, next) => {
       if (err) {
@@ -55,7 +57,7 @@ async function main() {
       console.log("server started at port", config.port);
     });
 
-    process.on("SIGILL", () => {
+    process.on("SIGINT", () => {
       connection.close();
     });
 
