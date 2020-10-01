@@ -1,6 +1,10 @@
 const express = require("express");
 const joi = require("joi");
+const fs = require("fs");
 const passwordHash = require("password-hash");
+const imagemin = require("imagemin");
+const imageminJpegtran = require("imagemin-jpegtran");
+const imageminPngquant = require("imagemin-pngquant");
 const responseNormalizer = require("../normalizers/responseNormalizer");
 const UserModel = require("../database/models/UserModel");
 const errorWrapper = require("../helpers/errorWrapper");
@@ -9,7 +13,10 @@ const {
   UnauthorizedError,
   ConflictError,
 } = require("../helpers/errorHelper");
+const avatarGenerator = require("../helpers/avatarGenerator");
 const authCheck = require("../middlewares/auth-check");
+const multer = require("../helpers/multer");
+const config = require("../../config");
 
 const router = express.Router();
 
@@ -35,8 +42,10 @@ router.post(
       throw new ConflictError("Email in use");
     }
 
+    const avatarURL = await avatarGenerator(email, 200);
     const createdUser = await UserModel.create({
       email,
+      avatarURL,
     });
 
     res.status(201).send({ createdUser });
@@ -129,5 +138,46 @@ router.patch(
     res.status(204).send();
   })
 );
+
+router.patch(
+  "/avatars",
+  authCheck,
+  multer.single("avatar"),
+  errorWrapper(async (req, res) => {
+    minifyImage();
+
+    const userEmail = req.user;
+
+    if (!userEmail) {
+      throw new UnauthorizedError("Not authorized");
+    }
+
+    const avatarURL = `http://localhost:${process.env.PORT}/images/${req.file.filename}`;
+
+    await UserModel.findByIdAndUpdate(req.id, {
+      $set: { avatarURL },
+    });
+    res.status(200).send(responseNormalizer({ avatarURL }));
+  })
+);
+
+async function minifyImage(tmpFilePath) {
+  try {
+    await imagemin([tmpFilePath], {
+      destination: config.avaPath,
+      plugins: [
+        imageminJpegtran(),
+        imageminPngquant({
+          quality: [0.6, 0.8],
+        }),
+      ],
+    });
+
+    await fs.promises.unlink(tmpFilePath);
+    next();
+  } catch (e) {
+    console.log(e);
+  }
+}
 
 module.exports = router;

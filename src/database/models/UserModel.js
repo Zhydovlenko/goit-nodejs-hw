@@ -1,13 +1,15 @@
 const mongoose = require("mongoose");
 const passwordHash = require("password-hash");
 const jsonWebToken = require("jsonwebtoken");
-const config = require("../../config");
+const config = require("../../../config");
 
 const { Schema } = mongoose;
 
 const UserSchema = new Schema({
   email: String,
   password: String,
+  avatarURL: String,
+  avatarPath: String,
   subscription: {
     type: String,
     enum: ["free", "pro", "premium"],
