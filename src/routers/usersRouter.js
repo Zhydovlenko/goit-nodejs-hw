@@ -152,7 +152,7 @@ router.patch(
       throw new UnauthorizedError("Not authorized");
     }
 
-    const avatarURL = `http://localhost:${process.env.PORT}/images/${req.file.filename}`;
+    const avatarURL = `${config.serverURL}/images/${req.file.filename}`;
 
     await UserModel.findByIdAndUpdate(req.id, {
       $set: { avatarURL },

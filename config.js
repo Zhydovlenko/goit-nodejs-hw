@@ -8,4 +8,5 @@ module.exports = {
   jwtPrivateKey: process.env.TOKEN_PRIVATE_KEY,
   tempPath: path.join(process.cwd(), "tmp"),
   avaPath: path.join(__dirname, "src", "public", "images"),
+  serverURL: process.env.SERVER_URL,
 };
