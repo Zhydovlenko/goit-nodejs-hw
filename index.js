@@ -1,12 +1,13 @@
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
-const connection = require("./database/Connection");
+const connection = require("./src/database/Connection");
 const config = require("./config");
-const responseNormalizer = require("./normalizers/responseNormalizer");
-const contactsRouter = require("./routers/contactsRouter");
-const usersRouter = require("./routers/usersRouter");
+const responseNormalizer = require("./src/normalizers/responseNormalizer");
+const contactsRouter = require("./src/routers/contactsRouter");
+const usersRouter = require("./src/routers/usersRouter");
 const argv = require("yargs").argv;
+const path = require("path");
 
 const app = express();
 
@@ -40,9 +41,14 @@ async function main() {
     await connection.connect();
 
     app.use(morgan("tiny"));
+    app.use(express.urlencoded());
     app.use(express.json());
     app.use(cors());
 
+    app.use(
+      "/images",
+      express.static(path.join(__dirname, "src", "public", "images"))
+    );
     app.use("/api/contacts", contactsRouter);
     app.use("/users", usersRouter);
 

@@ -2,7 +2,7 @@ const joi = require("joi");
 const jwt = require("jsonwebtoken");
 const UserModel = require("../database/models/UserModel");
 const validate = require("../helpers/validate");
-const config = require("../config");
+const config = require("../../config");
 const errorWrapper = require("../helpers/errorWrapper");
 
 const { UnauthorizedError, ForbiddenError } = require("../helpers/errorHelper");
