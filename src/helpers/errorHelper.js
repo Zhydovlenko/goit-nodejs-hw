@@ -37,9 +37,18 @@ class ForbiddenError extends BaseError {
   }
 }
 
+class VerificationError extends BaseError {
+  constructor(errorMessage) {
+    super(errorMessage);
+    this.name = "VerificationError";
+    this.status = 404;
+  }
+}
+
 module.exports = {
   ValidationError,
   UnauthorizedError,
   ConflictError,
   ForbiddenError,
+  VerificationError,
 };

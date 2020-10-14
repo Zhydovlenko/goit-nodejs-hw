@@ -21,6 +21,13 @@ const UserSchema = new Schema({
       expires: { type: Date, required: true },
     },
   ],
+  status: {
+    type: String,
+    required: true,
+    enum: ["Verified", "Created"],
+    default: "Created",
+  },
+  verificationToken: { type: String, required: false },
 });
 
 UserSchema.static("hashPasssword", (password) => {
