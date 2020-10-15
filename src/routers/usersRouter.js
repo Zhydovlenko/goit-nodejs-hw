@@ -1,6 +1,7 @@
 const express = require("express");
 const joi = require("joi");
 const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
 const passwordHash = require("password-hash");
 const imagemin = require("imagemin");
 const imageminJpegtran = require("imagemin-jpegtran");
@@ -12,11 +13,15 @@ const {
   ValidationError,
   UnauthorizedError,
   ConflictError,
+  VerificationError,
 } = require("../helpers/errorHelper");
 const avatarGenerator = require("../helpers/avatarGenerator");
 const authCheck = require("../middlewares/auth-check");
 const multer = require("../helpers/multer");
 const config = require("../../config");
+const sgMail = require("@sendgrid/mail");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const router = express.Router();
 
@@ -43,10 +48,13 @@ router.post(
     }
 
     const avatarURL = await avatarGenerator(email, 200);
+
     const createdUser = await UserModel.create({
       email,
       avatarURL,
     });
+
+    await sendVerificationEmail(createdUser);
 
     res.status(201).send({ createdUser });
   })
@@ -103,6 +111,33 @@ router.post(
     user.tokens = user.tokens.filter((userToken) => userToken.token !== token);
     await user.save();
     res.status(204).send();
+  })
+);
+
+router.get(
+  "/auth/verify/:verificationToken",
+  errorWrapper(async (req, res) => {
+    const { verificationToken } = req.params;
+
+    const userToVerify = await UserModel.findOne({
+      verificationToken,
+    });
+    if (!userToVerify) {
+      throw new VerificationError("User not found");
+    }
+
+    await UserModel.findByIdAndUpdate(
+      userToVerify._id,
+      {
+        status: "Verified",
+        verificationToken: null,
+      },
+      {
+        new: true,
+      }
+    );
+
+    return res.status(200).send("You are successfully verified");
   })
 );
 
@@ -178,6 +213,29 @@ async function minifyImage(tmpFilePath) {
   } catch (e) {
     console.log(e);
   }
+}
+
+async function sendVerificationEmail(user) {
+  const verificationToken = uuidv4();
+
+  await UserModel.findByIdAndUpdate(
+    user._id,
+    {
+      verificationToken,
+    },
+    {
+      new: true,
+    }
+  );
+
+  const msg = {
+    to: config.recipient,
+    from: config.sender,
+    subject: "Email verification",
+    html: `<a href='${config.serverURL}/users/auth/verify/${verificationToken}'>Click here to verify</a>`,
+  };
+
+  await sgMail.send(msg);
 }
 
 module.exports = router;

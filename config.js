@@ -9,4 +9,6 @@ module.exports = {
   tempPath: path.join(process.cwd(), "tmp"),
   avaPath: path.join(__dirname, "src", "public", "images"),
   serverURL: process.env.SERVER_URL,
+  recipient: process.env.RECIPIENT,
+  sender: process.env.SENDER,
 };
